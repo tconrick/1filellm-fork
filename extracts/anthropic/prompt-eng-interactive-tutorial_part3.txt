@@ -1,0 +1,1445 @@
+<file name="Anthropic 1P/10.1_Appendix_Chaining Prompts.ipynb">
+#!/usr/bin/env python
+# coding: utf-8
+
+# # Appendix 10.1: Chaining Prompts
+# 
+# - [Lesson](#lesson)
+# - [Example Playground](#example-playground)
+# 
+# ## Setup
+# 
+# Run the following setup cell to load your API key and establish the `get_completion` helper function.
+
+# In[ ]:
+
+
+get_ipython().system('pip install anthropic')
+
+# Import python's built-in regular expression library
+import re
+import anthropic
+
+# Retrieve the API_KEY &amp; MODEL_NAME variables from the IPython store
+get_ipython().run_line_magic('store', '-r API_KEY')
+get_ipython().run_line_magic('store', '-r MODEL_NAME')
+
+client = anthropic.Anthropic(api_key=API_KEY)
+
+# Has been rewritten to take in a messages list of arbitrary length
+def get_completion(messages, system_prompt=""):
+    message = client.messages.create(
+        model=MODEL_NAME,
+        max_tokens=2000,
+        temperature=0.0,
+        system=system_prompt,
+        messages=messages
+    )
+    return message.content[0].text
+
+
+# ---
+# 
+# ## Lesson
+# 
+# The saying goes, "Writing is rewriting." It turns out, **Claude can often improve the accuracy of its response when asked to do so**!
+# 
+# There are many ways to prompt Claude to "think again". The ways that feel natural to ask a human to double check their work will also generally work for Claude. (Check out our [prompt chaining documentation](https://docs.anthropic.com/claude/docs/chain-prompts) for further examples of when and how to use prompt chaining.)
+
+# ### Examples
+# 
+# In this example, we ask Claude to come up with ten words... but one or more of them isn't a real word.
+
+# In[ ]:
+
+
+# Initial prompt
+first_user = "Name ten words that all end with the exact letters 'ab'."
+
+# API messages array
+messages = [
+    {
+        "role": "user",
+        "content": first_user
+    }
+]
+
+# Store and print Claude's response
+first_response = get_completion(messages)
+print(first_response)
+
+
+# **Asking Claude to make its answer more accurate** fixes the error! 
+# 
+# Below, we've pulled down Claude's incorrect response from above and added another turn to the conversation asking Claude to fix its previous answer.
+
+# In[ ]:
+
+
+second_user = "Please find replacements for all 'words' that are not real words."
+
+# API messages array
+messages = [
+    {
+        "role": "user",
+        "content": first_user
+    
+    },
+    {
+        "role": "assistant",
+        "content": first_response
+    
+    },
+    {
+        "role": "user",
+        "content": second_user
+    
+    }
+]
+
+# Print Claude's response
+print("------------------------ Full messsages array with variable substutions ------------------------")
+print(messages)
+print("\n------------------------------------- Claude's response -------------------------------------")
+print(get_completion(messages))
+
+
+# But is Claude revising its answer just because we told it to? What if we start off with a correct answer already? Will Claude lose its confidence? Here, we've placed a correct response in the place of `first_response` and asked it to double check again.
+
+# In[ ]:
+
+
+first_user = "Name ten words that all end with the exact letters 'ab'."
+
+first_response = """Here are 10 words that end with the letters 'ab':
+
+1. Cab
+2. Dab
+3. Grab
+4. Gab
+5. Jab
+6. Lab
+7. Nab
+8. Slab
+9. Tab
+10. Blab"""
+
+second_user = "Please find replacements for all 'words' that are not real words."
+
+# API messages array
+messages = [
+    {
+        "role": "user",
+        "content": first_user
+    
+    },
+    {
+        "role": "assistant",
+        "content": first_response
+    
+    },
+    {
+        "role": "user",
+        "content": second_user
+    
+    }
+]
+
+# Print Claude's response
+print("------------------------ Full messsages array with variable substutions ------------------------")
+print(messages)
+print("\n------------------------------------- Claude's response -------------------------------------")
+print(get_completion(messages))
+
+
+# You may notice that if you generate a respnse from the above block a few times, Claude leaves the words as is most of the time, but still occasionally changes the words even though they're all already correct. What can we do to mitigate this? Per Chapter 8, we can give Claude an out! Let's try this one more time.
+
+# In[ ]:
+
+
+first_user = "Name ten words that all end with the exact letters 'ab'."
+
+first_response = """Here are 10 words that end with the letters 'ab':
+
+1. Cab
+2. Dab
+3. Grab
+4. Gab
+5. Jab
+6. Lab
+7. Nab
+8. Slab
+9. Tab
+10. Blab"""
+
+second_user = "Please find replacements for all 'words' that are not real words. If all the words are real words, return the original list."
+
+# API messages array
+messages = [
+    {
+        "role": "user",
+        "content": first_user
+    
+    },
+    {
+        "role": "assistant",
+        "content": first_response
+    
+    },
+    {
+        "role": "user",
+        "content": second_user
+    
+    }
+]
+
+# Print Claude's response
+print("------------------------ Full messsages array with variable substutions ------------------------")
+print(messages)
+print("\n------------------------------------- Claude's response -------------------------------------")
+print(get_completion(messages))
+
+
+# Try generating responses from the above code a few times to see that Claude is much better at sticking to its guns now.
+# 
+# You can also use prompt chaining to **ask Claude to make its responses better**. Below, we asked Claude to first write a story, and then improve the story it wrote. Your personal tastes may vary, but many might agree that Claude's second version is better.
+# 
+# First, let's generate Claude's first version of the story.
+
+# In[ ]:
+
+
+# Initial prompt
+first_user = "Write a three-sentence short story about a girl who likes to run."
+
+# API messages array
+messages = [
+    {
+        "role": "user",
+        "content": first_user
+    }
+]
+
+# Store and print Claude's response
+first_response = get_completion(messages)
+print(first_response)
+
+
+# Now let's have Claude improve on its first draft.
+
+# In[ ]:
+
+
+second_user = "Make the story better."
+
+# API messages array
+messages = [
+    {
+        "role": "user",
+        "content": first_user
+    
+    },
+    {
+        "role": "assistant",
+        "content": first_response
+    
+    },
+    {
+        "role": "user",
+        "content": second_user
+    
+    }
+]
+
+# Print Claude's response
+print("------------------------ Full messsages array with variable substutions ------------------------")
+print(messages)
+print("\n------------------------------------- Claude's response -------------------------------------")
+print(get_completion(messages))
+
+
+# This form of substitution is very powerful. We've been using substitution placeholders to pass in lists, words, Claude's former responses, and so on. You can also **use substitution to do what we call "function calling," which is asking Claude to perform some function, and then taking the results of that function and asking Claude to do even more afterward with the results**. It works like any other substitution. More on this in the next appendix.
+# 
+# Below is one more example of taking the results of one call to Claude and plugging it into another, longer call. Let's start with the first prompt (which includes prefilling Claude's response this time).
+
+# In[ ]:
+
+
+first_user = """Find all names from the below text:
+
+"Hey, Jesse. It's me, Erin. I'm calling about the party that Joey is throwing tomorrow. Keisha said she would come and I think Mel will be there too."""
+
+prefill = "&lt;names&gt;"
+
+# API messages array
+messages = [
+    {
+        "role": "user",
+        "content": first_user
+    
+    },
+    {
+        "role": "assistant",
+        "content": prefill
+    
+    }
+]
+
+# Store and print Claude's response
+first_response = get_completion(messages)
+print("------------------------ Full messsages array with variable substutions ------------------------")
+print(messages)
+print("\n------------------------------------- Claude's response -------------------------------------")
+print(first_response)
+
+
+# Let's pass this list of names into another prompt.
+
+# In[ ]:
+
+
+second_user = "Alphabetize the list."
+
+# API messages array
+messages = [
+    {
+        "role": "user",
+        "content": first_user
+    
+    },
+    {
+        "role": "assistant",
+        "content": prefill + "\n" + first_response
+    
+    },
+    {
+        "role": "user",
+        "content": second_user
+    
+    }
+]
+
+# Print Claude's response
+print("------------------------ Full messsages array with variable substutions ------------------------")
+print(messages)
+print("\n------------------------------------- Claude's response -------------------------------------")
+print(get_completion(messages))
+
+
+# Now that you've learned about prompt chaining, head over to Appendix 10.2 to learn how to implement function calling using prompt chaining.
+
+# ---
+# 
+# ## Example Playground
+# 
+# This is an area for you to experiment freely with the prompt examples shown in this lesson and tweak prompts to see how it may affect Claude's responses.
+
+# In[ ]:
+
+
+# Initial prompt
+first_user = "Name ten words that all end with the exact letters 'ab'."
+
+# API messages array
+messages = [
+    {
+        "role": "user",
+        "content": first_user
+    }
+]
+
+# Store and print Claude's response
+first_response = get_completion(messages)
+print(first_response)
+
+
+# In[ ]:
+
+
+second_user = "Please find replacements for all 'words' that are not real words."
+
+# API messages array
+messages = [
+    {
+        "role": "user",
+        "content": first_user
+    
+    },
+    {
+        "role": "assistant",
+        "content": first_response
+    
+    },
+    {
+        "role": "user",
+        "content": second_user
+    
+    }
+]
+
+# Print Claude's response
+print("------------------------ Full messsages array with variable substutions ------------------------")
+print(messages)
+print("\n------------------------------------- Claude's response -------------------------------------")
+print(get_completion(messages))
+
+
+# In[ ]:
+
+
+first_user = "Name ten words that all end with the exact letters 'ab'."
+
+first_response = """Here are 10 words that end with the letters 'ab':
+
+1. Cab
+2. Dab
+3. Grab
+4. Gab
+5. Jab
+6. Lab
+7. Nab
+8. Slab
+9. Tab
+10. Blab"""
+
+second_user = "Please find replacements for all 'words' that are not real words."
+
+# API messages array
+messages = [
+    {
+        "role": "user",
+        "content": first_user
+    
+    },
+    {
+        "role": "assistant",
+        "content": first_response
+    
+    },
+    {
+        "role": "user",
+        "content": second_user
+    
+    }
+]
+
+# Print Claude's response
+print("------------------------ Full messsages array with variable substutions ------------------------")
+print(messages)
+print("\n------------------------------------- Claude's response -------------------------------------")
+print(get_completion(messages))
+
+
+# In[ ]:
+
+
+first_user = "Name ten words that all end with the exact letters 'ab'."
+
+first_response = """Here are 10 words that end with the letters 'ab':
+
+1. Cab
+2. Dab
+3. Grab
+4. Gab
+5. Jab
+6. Lab
+7. Nab
+8. Slab
+9. Tab
+10. Blab"""
+
+second_user = "Please find replacements for all 'words' that are not real words. If all the words are real words, return the original list."
+
+# API messages array
+messages = [
+    {
+        "role": "user",
+        "content": first_user
+    
+    },
+    {
+        "role": "assistant",
+        "content": first_response
+    
+    },
+    {
+        "role": "user",
+        "content": second_user
+    
+    }
+]
+
+# Print Claude's response
+print("------------------------ Full messsages array with variable substutions ------------------------")
+print(messages)
+print("\n------------------------------------- Claude's response -------------------------------------")
+print(get_completion(messages))
+
+
+# In[ ]:
+
+
+# Initial prompt
+first_user = "Write a three-sentence short story about a girl who likes to run."
+
+# API messages array
+messages = [
+    {
+        "role": "user",
+        "content": first_user
+    }
+]
+
+# Store and print Claude's response
+first_response = get_completion(messages)
+print(first_response)
+
+
+# In[ ]:
+
+
+second_user = "Make the story better."
+
+# API messages array
+messages = [
+    {
+        "role": "user",
+        "content": first_user
+    
+    },
+    {
+        "role": "assistant",
+        "content": first_response
+    
+    },
+    {
+        "role": "user",
+        "content": second_user
+    
+    }
+]
+
+# Print Claude's response
+print("------------------------ Full messsages array with variable substutions ------------------------")
+print(messages)
+print("\n------------------------------------- Claude's response -------------------------------------")
+print(get_completion(messages))
+
+
+# In[ ]:
+
+
+first_user = """Find all names from the below text:
+
+"Hey, Jesse. It's me, Erin. I'm calling about the party that Joey is throwing tomorrow. Keisha said she would come and I think Mel will be there too."""
+
+prefill = "&lt;names&gt;"
+
+# API messages array
+messages = [
+    {
+        "role": "user",
+        "content": first_user
+    
+    },
+    {
+        "role": "assistant",
+        "content": prefill
+    
+    }
+]
+
+# Store and print Claude's response
+first_response = get_completion(messages)
+print("------------------------ Full messsages array with variable substutions ------------------------")
+print(messages)
+print("\n------------------------------------- Claude's response -------------------------------------")
+print(first_response)
+
+
+# In[ ]:
+
+
+second_user = "Alphabetize the list."
+
+# API messages array
+messages = [
+    {
+        "role": "user",
+        "content": first_user
+    
+    },
+    {
+        "role": "assistant",
+        "content": prefill + "\n" + first_response
+    
+    },
+    {
+        "role": "user",
+        "content": second_user
+    
+    }
+]
+
+# Print Claude's response
+print("------------------------ Full messsages array with variable substutions ------------------------")
+print(messages)
+print("\n------------------------------------- Claude's response -------------------------------------")
+print(get_completion(messages))
+
+
+</file>
+<file name="Anthropic 1P/10.2_Appendix_Tool Use.ipynb">
+#!/usr/bin/env python
+# coding: utf-8
+
+# # Appendix 10.2: Tool Use
+# 
+# - [Lesson](#lesson)
+# - [Exercises](#exercises)
+# - [Example Playground](#example-playground)
+# 
+# ## Setup
+# 
+# Run the following setup cell to load your API key and establish the `get_completion` helper function.
+
+# In[ ]:
+
+
+get_ipython().system('pip install anthropic')
+
+# Import python's built-in regular expression library
+import re
+import anthropic
+
+# Retrieve the API_KEY variable from the IPython store
+get_ipython().run_line_magic('store', '-r API_KEY')
+
+client = anthropic.Anthropic(api_key=API_KEY)
+
+# Rewrittten to call Claude 3 Sonnet, which is generally better at tool use, and include stop_sequences
+def get_completion(messages, system_prompt="", prefill="",stop_sequences=None):
+    message = client.messages.create(
+        model="claude-3-sonnet-20240229",
+        max_tokens=2000,
+        temperature=0.0,
+        system=system_prompt,
+        messages=messages,
+        stop_sequences=stop_sequences
+    )
+    return message.content[0].text
+
+
+# ---
+# 
+# ## Lesson
+# 
+# While it might seem conceptually complex at first, tool use, a.k.a. function calling, is actually quite simple! You already know all the skills necessary to implement tool use, which is really just a combination of substitution and prompt chaining.
+# 
+# In previous substitution exercises, we substituted text into prompts. With tool use, we substitute tool or function results into prompts. Claude can't literally call or access tools and functions. Instead, we have Claude:
+# 1. Output the tool name and arguments it wants to call
+# 2. Halt any further response generation while the tool is called
+# 3. Then we reprompt with the appended tool results
+
+# Function calling is useful because it expands Claude's capabilities and enables Claude to handle much more complex, multi-step tasks.
+# Some examples of functions you can give Claude:
+# - Calculator
+# - Word counter
+# - SQL database querying and data retrieval
+# - Weather API
+
+# You can get Claude to do tool use by combining these two elements:
+# 
+# 1. A system prompt, in which we give Claude an explanation of the concept of tool use as well as a detailed descriptive list of the tools it has access to
+# 2. The control logic with which to orchestrate and execute Claude's tool use requests
+
+# ### Tool use roadmap
+# 
+# *This lesson teaches our current tool use format. However, we will be updating and improving tool use functionality in the near future, including:*
+# * *A more streamlined format for function definitions and calls*
+# * *More robust error handilgj and edge case coverage*
+# * *Tighter integration with the rest of our API*
+# * *Better reliability and performance, especially for more complex tool use tasks*
+
+# ### Examples
+# 
+# To enable tool use in Claude, we start with the system prompt. In this special tool use system prompt, wet tell Claude:
+# * The basic premise of tool use and what it entails
+# * How Claude can call and use the tools it's been given
+# * A detailed list of tools it has access to in this specific scenario 
+# 
+# Here's the first part of the system prompt, explaining tool use to Claude. This part of the system prompt is generalizable across all instances of prompting Claude for tool use. The tool calling structure we're giving Claude (`&lt;function_calls&gt; [...] &lt;/function_calls&gt;`) is a structure Claude has been specifically trained to use, so we recommend that you stick with this.
+
+# In[ ]:
+
+
+system_prompt_tools_general_explanation = """You have access to a set of functions you can use to answer the user's question. This includes access to a
+sandboxed computing environment. You do NOT currently have the ability to inspect files or interact with external
+resources, except by invoking the below functions.
+
+You can invoke one or more functions by writing a "&lt;function_calls&gt;" block like the following as part of your
+reply to the user:
+&lt;function_calls&gt;
+&lt;invoke name="$FUNCTION_NAME"&gt;
+&lt;antml:parameter name="$PARAMETER_NAME"&gt;$PARAMETER_VALUE&lt;/parameter&gt;
+...
+&lt;/invoke&gt;
+&lt;nvoke name="$FUNCTION_NAME2"&gt;
+...
+&lt;/invoke&gt;
+&lt;/function_calls&gt;
+
+String and scalar parameters should be specified as is, while lists and objects should use JSON format. Note that
+spaces for string values are not stripped. The output is not expected to be valid XML and is parsed with regular
+expressions.
+
+The output and/or any errors will appear in a subsequent "&lt;function_results&gt;" block, and remain there as part of
+your reply to the user.
+You may then continue composing the rest of your reply to the user, respond to any errors, or make further function
+calls as appropriate.
+If a "&lt;function_results&gt;" does NOT appear after your function calls, then they are likely malformatted and not
+recognized as a call."""
+
+
+# Here's the second part of the system prompt, which defines the exact tools Claude has access to in this specific situation. In this example, we will be giving Claude a calculator tool, which takes three parameters: two operands and an operator. 
+# 
+# Then we combine the two parts of the system prompt.
+
+# In[ ]:
+
+
+system_prompt_tools_specific_tools = """Here are the functions available in JSONSchema format:
+&lt;tools&gt;
+&lt;tool_description&gt;
+&lt;tool_name&gt;calculator&lt;/tool_name&gt;
+&lt;description&gt;
+Calculator function for doing basic arithmetic.
+Supports addition, subtraction, multiplication
+&lt;/description&gt;
+&lt;parameters&gt;
+&lt;parameter&gt;
+&lt;name&gt;first_operand&lt;/name&gt;
+&lt;type&gt;int&lt;/type&gt;
+&lt;description&gt;First operand (before the operator)&lt;/description&gt;
+&lt;/parameter&gt;
+&lt;parameter&gt;
+&lt;name&gt;second_operand&lt;/name&gt;
+&lt;type&gt;int&lt;/type&gt;
+&lt;description&gt;Second operand (after the operator)&lt;/description&gt;
+&lt;/parameter&gt;
+&lt;parameter&gt;
+&lt;name&gt;operator&lt;/name&gt;
+&lt;type&gt;str&lt;/type&gt;
+&lt;description&gt;The operation to perform. Must be either +, -, *, or /&lt;/description&gt;
+&lt;/parameter&gt;
+&lt;/parameters&gt;
+&lt;/tool_description&gt;
+&lt;/tools&gt;
+"""
+
+system_prompt = system_prompt_tools_general_explanation + system_prompt_tools_specific_tools
+
+
+# Now we can give Claude a question that requires use of the `calculator` tool. We will use `&lt;function_calls\&gt;` in `stop_sequences` to detect if and when Claude calls the function.
+
+# In[ ]:
+
+
+multiplication_message = {
+    "role": "user",
+    "content": "Multiply 1,984,135 by 9,343,116"
+}
+
+stop_sequences = ["&lt;/function_calls&gt;"]
+
+# Get Claude's response
+function_calling_response = get_completion([multiplication_message], system_prompt=system_prompt, stop_sequences=stop_sequences)
+print(function_calling_response)
+
+
+# Now, we can extract out the parameters from Claude's function call and actually run the function on Claude's behalf.
+# 
+# First we'll define the function's code.
+
+# In[ ]:
+
+
+def do_pairwise_arithmetic(num1, num2, operation):
+    if operation == '+':
+        return num1 + num2
+    elif operation == "-":
+        return num1 - num2
+    elif operation == "*":
+        return num1 * num2
+    elif operation == "/":
+        return num1 / num2
+    else:
+        return "Error: Operation not supported."
+
+
+# Then we'll extract the parameters from Claude's function call response. If all the parameters exist, we run the calculator tool.
+
+# In[ ]:
+
+
+def find_parameter(message, parameter_name):
+    parameter_start_string = f"name=\"{parameter_name}\"&gt;"
+    start = message.index(parameter_start_string)
+    if start == -1:
+        return None
+    if start &gt; 0:
+        start = start + len(parameter_start_string)
+        end = start
+        while message[end] != "&lt;":
+            end += 1
+    return message[start:end]
+
+first_operand = find_parameter(function_calling_response, "first_operand")
+second_operand = find_parameter(function_calling_response, "second_operand")
+operator = find_parameter(function_calling_response, "operator")
+
+if first_operand and second_operand and operator:
+    result = do_pairwise_arithmetic(int(first_operand), int(second_operand), operator)
+    print("---------------- RESULT ----------------")
+    print(f"{result:,}")
+
+
+# Now that we have a result, we have to properly format that result so that when we pass it back to Claude, Claude understands what tool that result is in relation to. There is a set format for this that Claude has been trained to recognize:
+# ```
+# &lt;function_results&gt;
+# &lt;result&gt;
+# &lt;tool_name&gt;{TOOL_NAME}&lt;/tool_name&gt;
+# &lt;stdout&gt;
+# {TOOL_RESULT}
+# &lt;/stdout&gt;
+# &lt;/result&gt;
+# &lt;/function_results&gt;
+# ```
+# 
+# Run the cell below to format the above tool result into this structure.
+
+# In[ ]:
+
+
+def construct_successful_function_run_injection_prompt(invoke_results):
+    constructed_prompt = (
+        "&lt;function_results&gt;\n"
+        + '\n'.join(
+            f"&lt;result&gt;\n&lt;tool_name&gt;{res['tool_name']}&lt;/tool_name&gt;\n&lt;stdout&gt;\n{res['tool_result']}\n&lt;/stdout&gt;\n&lt;/result&gt;"
+            for res in invoke_results
+        ) + "\n&lt;/function_results&gt;"
+    )
+
+    return constructed_prompt
+
+formatted_results = [{
+    'tool_name': 'do_pairwise_arithmetic',
+    'tool_result': result
+}]
+function_results = construct_successful_function_run_injection_prompt(formatted_results)
+print(function_results)
+
+
+# Now all we have to do is send this result back to Claude by appending the result to the same message chain as before, and we're good!
+
+# In[ ]:
+
+
+full_first_response = function_calling_response + "&lt;/function_calls&gt;"
+
+# Construct the full conversation
+messages = [multiplication_message,
+{
+    "role": "assistant",
+    "content": full_first_response
+},
+{
+    "role": "user",
+    "content": function_results
+}]
+   
+# Print Claude's response
+final_response = get_completion(messages, system_prompt=system_prompt, stop_sequences=stop_sequences)
+print("------------- FINAL RESULT -------------")
+print(final_response)
+
+
+# Congratulations on running an entire tool use chain end to end!
+# 
+# Now what if we give Claude a question that doesn't that doesn't require using the given tool at all?
+
+# In[ ]:
+
+
+non_multiplication_message = {
+    "role": "user",
+    "content": "Tell me the capital of France."
+}
+
+stop_sequences = ["&lt;/function_calls&gt;"]
+
+# Get Claude's response
+function_calling_response = get_completion([non_multiplication_message], system_prompt=system_prompt, stop_sequences=stop_sequences)
+print(function_calling_response)
+
+
+# Success! As you can see, Claude knew not to call the function when it wasn't needed.
+# 
+# If you would like to experiment with the lesson prompts without changing any content above, scroll all the way to the bottom of the lesson notebook to visit the [**Example Playground**](#example-playground).
+
+# ---
+# 
+# ## Exercises
+# - [Exercise 10.2.1 - SQL](#exercise-1021---SQL)
+
+# ### Exercise 10.2.1 - SQL
+# In this exercise, you'll be writing a tool use prompt for querying and writing to the world's smallest "database". Here's the initialized database, which is really just a dictionary.
+
+# In[ ]:
+
+
+db = {
+    "users": [
+        {"id": 1, "name": "Alice", "email": "alice@example.com"},
+        {"id": 2, "name": "Bob", "email": "bob@example.com"},
+        {"id": 3, "name": "Charlie", "email": "charlie@example.com"}
+    ],
+    "products": [
+        {"id": 1, "name": "Widget", "price": 9.99},
+        {"id": 2, "name": "Gadget", "price": 14.99},
+        {"id": 3, "name": "Doohickey", "price": 19.99}
+    ]
+}
+
+
+# And here is the code for the functions that write to and from the database.
+
+# In[ ]:
+
+
+def get_user(user_id):
+    for user in db["users"]:
+        if user["id"] == user_id:
+            return user
+    return None
+
+def get_product(product_id):
+    for product in db["products"]:
+        if product["id"] == product_id:
+            return product
+    return None
+
+def add_user(name, email):
+    user_id = len(db["users"]) + 1
+    user = {"id": user_id, "name": name, "email": email}
+    db["users"].append(user)
+    return user
+
+def add_product(name, price):
+    product_id = len(db["products"]) + 1
+    product = {"id": product_id, "name": name, "price": price}
+    db["products"].append(product)
+    return product
+
+
+# To solve the exercise, start by defining a system prompt like `system_prompt_tools_specific_tools` above. Make sure to include the name and description of each tool, along with the name and type and description of each parameter for each function. We've given you some starting scaffolding below.
+
+# In[ ]:
+
+
+system_prompt_tools_specific_tools_sql = """
+"""
+
+system_prompt = system_prompt_tools_general_explanation + system_prompt_tools_specific_tools_sql
+
+
+# When you're ready, you can try out your tool definition system prompt on the examples below. Just run the below cell!
+
+# In[ ]:
+
+
+examples = [
+    "Add a user to the database named Deborah.",
+    "Add a product to the database named Thingo",
+    "Tell me the name of User 2",
+    "Tell me the name of Product 3"
+]
+
+for example in examples:
+    message = {
+        "role": "user",
+        "content": example
+    }
+
+    # Get &amp; print Claude's response
+    function_calling_response = get_completion([message], system_prompt=system_prompt, stop_sequences=stop_sequences)
+    print(example, "\n----------\n\n", function_calling_response, "\n*********\n*********\n*********\n\n")
+
+
+# If you did it right, the function calling messages should call the `add_user`, `add_product`, `get_user`, and `get_product` functions correctly.
+# 
+# For extra credit, add some code cells and write parameter-parsing code. Then call the functions with the parameters Claude gives you to see the state of the "database" after the call.
+
+# ❓ If you want to see a possible solution, run the cell below!
+
+# In[ ]:
+
+
+from hints import exercise_10_2_1_solution; print(exercise_10_2_1_solution)
+
+
+# ### Congrats!
+# 
+# Congratulations on learning tool use and function calling! Head over to the last appendix section if you would like to learn more about search &amp; RAG.
+
+# ---
+# 
+# ## Example Playground
+# 
+# This is an area for you to experiment freely with the prompt examples shown in this lesson and tweak prompts to see how it may affect Claude's responses.
+
+# In[ ]:
+
+
+system_prompt_tools_general_explanation = """You have access to a set of functions you can use to answer the user's question. This includes access to a
+sandboxed computing environment. You do NOT currently have the ability to inspect files or interact with external
+resources, except by invoking the below functions.
+
+You can invoke one or more functions by writing a "&lt;function_calls&gt;" block like the following as part of your
+reply to the user:
+&lt;function_calls&gt;
+&lt;invoke name="$FUNCTION_NAME"&gt;
+&lt;antml:parameter name="$PARAMETER_NAME"&gt;$PARAMETER_VALUE&lt;/parameter&gt;
+...
+&lt;/invoke&gt;
+&lt;nvoke name="$FUNCTION_NAME2"&gt;
+...
+&lt;/invoke&gt;
+&lt;/function_calls&gt;
+
+String and scalar parameters should be specified as is, while lists and objects should use JSON format. Note that
+spaces for string values are not stripped. The output is not expected to be valid XML and is parsed with regular
+expressions.
+
+The output and/or any errors will appear in a subsequent "&lt;function_results&gt;" block, and remain there as part of
+your reply to the user.
+You may then continue composing the rest of your reply to the user, respond to any errors, or make further function
+calls as appropriate.
+If a "&lt;function_results&gt;" does NOT appear after your function calls, then they are likely malformatted and not
+recognized as a call."""
+
+
+# In[ ]:
+
+
+system_prompt_tools_specific_tools = """Here are the functions available in JSONSchema format:
+&lt;tools&gt;
+&lt;tool_description&gt;
+&lt;tool_name&gt;calculator&lt;/tool_name&gt;
+&lt;description&gt;
+Calculator function for doing basic arithmetic.
+Supports addition, subtraction, multiplication
+&lt;/description&gt;
+&lt;parameters&gt;
+&lt;parameter&gt;
+&lt;name&gt;first_operand&lt;/name&gt;
+&lt;type&gt;int&lt;/type&gt;
+&lt;description&gt;First operand (before the operator)&lt;/description&gt;
+&lt;/parameter&gt;
+&lt;parameter&gt;
+&lt;name&gt;second_operand&lt;/name&gt;
+&lt;type&gt;int&lt;/type&gt;
+&lt;description&gt;Second operand (after the operator)&lt;/description&gt;
+&lt;/parameter&gt;
+&lt;parameter&gt;
+&lt;name&gt;operator&lt;/name&gt;
+&lt;type&gt;str&lt;/type&gt;
+&lt;description&gt;The operation to perform. Must be either +, -, *, or /&lt;/description&gt;
+&lt;/parameter&gt;
+&lt;/parameters&gt;
+&lt;/tool_description&gt;
+&lt;/tools&gt;
+"""
+
+system_prompt = system_prompt_tools_general_explanation + system_prompt_tools_specific_tools
+
+
+# In[ ]:
+
+
+multiplication_message = {
+    "role": "user",
+    "content": "Multiply 1,984,135 by 9,343,116"
+}
+
+stop_sequences = ["&lt;/function_calls&gt;"]
+
+# Get Claude's response
+function_calling_response = get_completion([multiplication_message], system_prompt=system_prompt, stop_sequences=stop_sequences)
+print(function_calling_response)
+
+
+# In[ ]:
+
+
+def do_pairwise_arithmetic(num1, num2, operation):
+    if operation == '+':
+        return num1 + num2
+    elif operation == "-":
+        return num1 - num2
+    elif operation == "*":
+        return num1 * num2
+    elif operation == "/":
+        return num1 / num2
+    else:
+        return "Error: Operation not supported."
+
+
+# In[ ]:
+
+
+def find_parameter(message, parameter_name):
+    parameter_start_string = f"name=\"{parameter_name}\"&gt;"
+    start = message.index(parameter_start_string)
+    if start == -1:
+        return None
+    if start &gt; 0:
+        start = start + len(parameter_start_string)
+        end = start
+        while message[end] != "&lt;":
+            end += 1
+    return message[start:end]
+
+first_operand = find_parameter(function_calling_response, "first_operand")
+second_operand = find_parameter(function_calling_response, "second_operand")
+operator = find_parameter(function_calling_response, "operator")
+
+if first_operand and second_operand and operator:
+    result = do_pairwise_arithmetic(int(first_operand), int(second_operand), operator)
+    print("---------------- RESULT ----------------")
+    print(f"{result:,}")
+
+
+# In[ ]:
+
+
+def construct_successful_function_run_injection_prompt(invoke_results):
+    constructed_prompt = (
+        "&lt;function_results&gt;\n"
+        + '\n'.join(
+            f"&lt;result&gt;\n&lt;tool_name&gt;{res['tool_name']}&lt;/tool_name&gt;\n&lt;stdout&gt;\n{res['tool_result']}\n&lt;/stdout&gt;\n&lt;/result&gt;"
+            for res in invoke_results
+        ) + "\n&lt;/function_results&gt;"
+    )
+
+    return constructed_prompt
+
+formatted_results = [{
+    'tool_name': 'do_pairwise_arithmetic',
+    'tool_result': result
+}]
+function_results = construct_successful_function_run_injection_prompt(formatted_results)
+print(function_results)
+
+
+# In[ ]:
+
+
+full_first_response = function_calling_response + "&lt;/function_calls&gt;"
+
+# Construct the full conversation
+messages = [multiplication_message,
+{
+    "role": "assistant",
+    "content": full_first_response
+},
+{
+    "role": "user",
+    "content": function_results
+}]
+   
+# Print Claude's response
+final_response = get_completion(messages, system_prompt=system_prompt, stop_sequences=stop_sequences)
+print("------------- FINAL RESULT -------------")
+print(final_response)
+
+
+# In[ ]:
+
+
+non_multiplication_message = {
+    "role": "user",
+    "content": "Tell me the capital of France."
+}
+
+stop_sequences = ["&lt;/function_calls&gt;"]
+
+# Get Claude's response
+function_calling_response = get_completion([non_multiplication_message], system_prompt=system_prompt, stop_sequences=stop_sequences)
+print(function_calling_response)
+
+
+</file>
+<file name="Anthropic 1P/10.3_Appendix_Search &amp; Retrieval.ipynb">
+#!/usr/bin/env python
+# coding: utf-8
+
+# # Appendix 10.3: Search &amp; Retrieval
+# 
+# Did you know you can use Claude to **search through Wikipedia for you**? Claude can find and retrieve articles, at which point you can also use Claude to summarize and synthesize them, write novel content from what it found, and much more. And not just Wikipedia! You can also search over your own docs, whether stored as plain text or embedded in a vector datastore.
+# 
+# See our [RAG cookbook examples](https://github.com/anthropics/anthropic-cookbook/blob/main/third_party/Wikipedia/wikipedia-search-cookbook.ipynb) to learn how to supplement Claude's knowledge and improve the accuracy and relevance of Claude's responses with data retrieved from vector databases, Wikipedia, the internet, and more. There, you can also learn about how to use certain [embeddings](https://docs.anthropic.com/claude/docs/embeddings) and vector database tools.
+# 
+# If you are interested in learning about advanced RAG architectures using Claude, check out our [Claude 3 technical presentation slides on RAG architectures](https://docs.google.com/presentation/d/1zxkSI7lLUBrZycA-_znwqu8DDyVhHLkQGScvzaZrUns/edit#slide=id.g2c736259dac_63_782).
+
+</file>
+<file name="Anthropic 1P/hints.py">
+exercise_1_1_hint = """The grading function in this exercise is looking for an answer that contains the exact Arabic numerals "1", "2", and "3".
+You can often get Claude to do what you want simply by asking."""
+
+exercise_1_2_hint = """The grading function in this exercise is looking for answers that contain "soo" or "giggles".
+There are many ways to solve this, just by asking!"""
+
+exercise_2_1_hint ="""The grading function in this exercise is looking for any answer that includes the word "hola".
+Ask Claude to reply in Spanish like you would when speaking with a human. It's that simple!"""
+
+exercise_2_2_hint = """The grading function in this exercise is looking for EXACTLY "Michael Jordan".
+How would you ask another human to do this? Reply with no other words? Reply with only the name and nothing else? There are several ways to approach this answer."""
+
+exercise_2_3_hint = """The grading function in this cell is looking for a response that is equal to or greater than 800 words.
+Because LLMs aren't great at counting words yet, you may have to overshoot your target."""
+
+exercise_3_1_hint = """The grading function in this exercise is looking for an answer that includes the words "incorrect" or "not correct".
+Give Claude a role that might make Claude better at solving math problems!"""
+
+exercise_4_1_hint = """The grading function in this exercise is looking for a solution that includes the words "haiku" and "pig".
+Don't forget to include the exact phrase "{TOPIC}" wherever you want the topic to be substituted in. Changing the "TOPIC" variable value should make Claude write a haiku about a different topic."""
+
+exercise_4_2_hint = """The grading function in this exercise is looking for a response that includes the word "brown".
+If you surround "{QUESTION}" in XML tags, how does that change Claude's response?"""
+
+exercise_4_3_hint = """The grading function in this exercise is looking for a response that includes the word "brown".
+Try removing one word or section of characters at a time, starting with the parts that make the least sense. Doing this one word at a time will also help you see just how much Claude can or can't parse and understand."""
+
+exercise_5_1_hint = """The grading function for this exercise is looking for a response that includes the word "Warrior".
+Write more words in Claude's voice to steer Claude to act the way you want it to. For instance, instead of "Stephen Curry is the best because," you could write "Stephen Curry is the best and here are three reasons why. 1:"""
+
+exercise_5_2_hint = """The grading function looks for a response of over 5 lines in length that includes the words "cat" and "&lt;haiku&gt;".
+Start simple. Currently, the prompt asks Claude for one haiku. You can change that and ask for two (or even more). Then if you run into formatting issues, change your prompt to fix that after you've already gotten Claude to write more than one haiku."""
+
+exercise_5_3_hint = """The grading function in this exercise is looking for a response that contains the words "tail", "cat", and "&lt;haiku&gt;".
+It's helpful to break this exercise down to several steps.								
+1.	Modify the initial prompt template so that Claude writes two poems.							
+2.	Give Claude indicators as to what the poems will be about, but instead of writing in the subjects directly (e.g., dog, cat, etc.), replace those subjects with the keywords "{ANIMAL1}" and "{ANIMAL2}".							
+3.	Run the prompt and make sure that the full prompt with variable substitutions has all the words correctly substituted. If not, check to make sure your {bracket} tags are spelled correctly and formatted correctly with single moustache brackets."""
+
+exercise_6_1_hint = """The grading function in this exercise is looking for the correct categorization letter + the closing parentheses and the first letter of the name of the category, such as "C) B" or "B) B" etc.
+Let's take this exercise step by step:										
+1.	How will Claude know what categories you want to use? Tell it! Include the four categories you want directly in the prompt. Be sure to include the parenthetical letters as well for easy classification. Feel free to use XML tags to organize your prompt and make clear to Claude where the categories begin and end.									
+2.	Try to cut down on superfluous text so that Claude immediately answers with the classification and ONLY the classification. There are several ways to do this, from speaking for Claude (providing anything from the beginning of the sentence to a single open parenthesis so that Claude knows you want the parenthetical letter as the first part of the answer) to telling Claude that you want the classification and only the classification, skipping the preamble.
+Refer to Chapters 2 and 5 if you want a refresher on these techniques.							
+3.	Claude may still be incorrectly categorizing or not including the names of the categories when it answers. Fix this by telling Claude to include the full category name in its answer.)								
+4.	Be sure that you still have {email} somewhere in your prompt template so that we can properly substitute in emails for Claude to evaluate."""
+
+exercise_6_1_solution = """
+USER TURN
+Please classify this email into the following categories: {email}
+
+Do not include any extra words except the category.
+
+&lt;categories&gt;
+(A) Pre-sale question
+(B) Broken or defective item
+(C) Billing question
+(D) Other (please explain)
+&lt;/categories&gt;
+
+ASSISTANT TURN
+(
+"""
+
+exercise_6_2_hint = """The grading function in this exercise is looking for only the correct letter wrapped in &lt;answer&gt; tags, such as "&lt;answer&gt;B&lt;/answer&gt;". The correct categorization letters are the same as in the above exercise.
+Sometimes the simplest way to go about this is to give Claude an example of how you want its output to look. Just don't forget to wrap your example in &lt;example&gt;&lt;/example&gt; tags! And don't forget that if you prefill Claude's response with anything, Claude won't actually output that as part of its response."""
+
+exercise_7_1_hint = """You're going to have to write some example emails and classify them for Claude (with the exact formatting you want). There are multiple ways to do this. Here are some guidelines below.										
+1.	Try to have at least two example emails. Claude doesn't need an example for all categories, and the examples don't have to be long. It's more helpful to have examples for whatever you think the trickier categories are (which you were asked to think about at the bottom of Chapter 6 Exercise 1). XML tags will help you separate out your examples from the rest of your prompt, although it's unnecessary.									
+2.	Make sure your example answer formatting is exactly the format you want Claude to use, so Claude can emulate the format as well. This format should make it so that Claude's answer ends in the letter of the category. Wherever you put the {email} placeholder, make sure that it's formatted exactly like your example emails.									
+3.	Make sure you still have the categories listed within the prompt itself, otherwise Claude won't know what categories to reference, as well as {email} as a placeholder for substitution."""
+
+exercise_7_1_solution = """
+USER TURN
+Please classify emails into the following categories, and do not include explanations: 
+&lt;categories&gt;
+(A) Pre-sale question
+(B) Broken or defective item
+(C) Billing question
+(D) Other (please explain)
+&lt;/categories&gt;
+
+Here are a few examples of correct answer formatting:
+&lt;examples&gt;
+Q: How much does it cost to buy a Mixmaster4000?
+A: The correct category is: A
+
+Q: My Mixmaster won't turn on.
+A: The correct category is: B
+
+Q: Please remove me from your mailing list.
+A: The correct category is: D
+&lt;/examples&gt;
+
+Here is the email for you to categorize: {email}
+
+ASSISTANT TURN
+The correct category is:
+"""
+exercise_8_1_hint = """The grading function in this exercise is looking for a response that contains the phrase "I do not", "I don't", or "Unfortunately".
+What should Claude do if it doesn't know the answer?"""
+
+exercise_8_2_hint = """The grading function in this exercise is looking for a response that contains the phrase "49-fold".
+Make Claude show its work and thought process first by extracting relevant quotes and seeing whether or not the quotes provide sufficient evidence. Refer back to the Chapter 8 Lesson if you want a refresher."""
+
+exercise_9_1_solution = """
+You are a master tax acountant. Your task is to answer user questions using any provided reference documentation.
+
+Here is the material you should use to answer the user's question:
+&lt;docs&gt;
+{TAX_CODE}
+&lt;/docs&gt;
+
+Here is an example of how to respond:
+&lt;example&gt;
+&lt;question&gt;
+What defines a "qualified" employee?
+&lt;/question&gt;
+&lt;answer&gt;
+&lt;quotes&gt;For purposes of this subsection—
+(A)In general
+The term "qualified employee" means any individual who—
+(i)is not an excluded employee, and
+(ii)agrees in the election made under this subsection to meet such requirements as are determined by the Secretary to be necessary to ensure that the withholding requirements of the corporation under chapter 24 with respect to the qualified stock are met.&lt;/quotes&gt;
+
+&lt;answer&gt;According to the provided documentation, a "qualified employee" is defined as an individual who:
+
+1. Is not an "excluded employee" as defined in the documentation.
+2. Agrees to meet the requirements determined by the Secretary to ensure the corporation's withholding requirements under Chapter 24 are met with respect to the qualified stock.&lt;/answer&gt;
+&lt;/example&gt;
+
+First, gather quotes in &lt;quotes&gt;&lt;/quotes&gt; tags that are relevant to answering the user's question. If there are no quotes, write "no relevant quotes found".
+
+Then insert two paragraph breaks before answering the user question within &lt;answer&gt;&lt;/answer&gt; tags. Only answer the user's question if you are confident that the quotes in &lt;quotes&gt;&lt;/quotes&gt; tags support your answer. If not, tell the user that you unfortunately do not have enough information to answer the user's question.
+
+Here is the user question: {QUESTION}
+"""
+
+exercise_9_2_solution = """
+You are Codebot, a helpful AI assistant who finds issues with code and suggests possible improvements.
+
+Act as a Socratic tutor who helps the user learn.
+
+You will be given some code from a user. Please do the following:
+1. Identify any issues in the code. Put each issue inside separate &lt;issues&gt; tags.
+2. Invite the user to write a revised version of the code to fix the issue.
+
+Here's an example:
+
+&lt;example&gt;
+&lt;code&gt;
+def calculate_circle_area(radius):
+    return (3.14 * radius) ** 2
+&lt;/code&gt;
+&lt;issues&gt;
+&lt;issue&gt;
+3.14 is being squared when it's actually only the radius that should be squared&gt;
+&lt;/issue&gt;
+&lt;response&gt;
+That's almost right, but there's an issue related to order of operations. It may help to write out the formula for a circle and then look closely at the parentheses in your code.
+&lt;/response&gt;
+&lt;/example&gt;
+
+Here is the code you are to analyze:
+
+&lt;code&gt;
+{CODE}
+&lt;/code&gt;
+
+Find the relevant issues and write the Socratic tutor-style response. Do not give the user too much help! Instead, just give them guidance so they can find the correct solution themselves.
+
+Put each issue in &lt;issue&gt; tags and put your final response in &lt;response&gt; tags.
+"""
+
+exercise_10_2_1_solution = """system_prompt = system_prompt_tools_general_explanation + \"""Here are the functions available in JSONSchema format:
+
+&lt;tools&gt;
+
+&lt;tool_description&gt;
+&lt;tool_name&gt;get_user&lt;/tool_name&gt;
+&lt;description&gt;
+Retrieves a user from the database by their user ID.
+&lt;/description&gt;
+&lt;parameters&gt;
+&lt;parameter&gt;
+&lt;name&gt;user_id&lt;/name&gt;
+&lt;type&gt;int&lt;/type&gt;
+&lt;description&gt;The ID of the user to retrieve.&lt;/description&gt;
+&lt;/parameter&gt;
+&lt;/parameters&gt;
+&lt;/tool_description&gt;
+
+&lt;tool_description&gt;
+&lt;tool_name&gt;get_product&lt;/tool_name&gt;
+&lt;description&gt;
+Retrieves a product from the database by its product ID.
+&lt;/description&gt;
+&lt;parameters&gt;
+&lt;parameter&gt;
+&lt;name&gt;product_id&lt;/name&gt;
+&lt;type&gt;int&lt;/type&gt;
+&lt;description&gt;The ID of the product to retrieve.&lt;/description&gt;
+&lt;/parameter&gt;
+&lt;/parameters&gt;
+&lt;/tool_description&gt;
+
+&lt;tool_description&gt;
+&lt;tool_name&gt;add_user&lt;/tool_name&gt;
+&lt;description&gt;
+Adds a new user to the database.
+&lt;/description&gt;
+&lt;parameters&gt;
+&lt;parameter&gt;
+&lt;name&gt;name&lt;/name&gt;
+&lt;type&gt;str&lt;/type&gt;
+&lt;description&gt;The name of the user.&lt;/description&gt;
+&lt;/parameter&gt;
+&lt;parameter&gt;
+&lt;name&gt;email&lt;/name&gt;
+&lt;type&gt;str&lt;/type&gt;
+&lt;description&gt;The email address of the user.&lt;/description&gt;
+&lt;/parameter&gt;
+&lt;/parameters&gt;
+&lt;/tool_description&gt;
+
+&lt;tool_description&gt;
+&lt;tool_name&gt;add_product&lt;/tool_name&gt;
+&lt;description&gt;
+Adds a new product to the database.
+&lt;/description&gt;
+&lt;parameters&gt;
+&lt;parameter&gt;
+&lt;name&gt;name&lt;/name&gt;
+&lt;type&gt;str&lt;/type&gt;
+&lt;description&gt;The name of the product.&lt;/description&gt;
+&lt;/parameter&gt;
+&lt;parameter&gt;
+&lt;name&gt;price&lt;/name&gt;
+&lt;type&gt;float&lt;/type&gt;
+&lt;description&gt;The price of the product.&lt;/description&gt;
+&lt;/parameter&gt;
+&lt;/parameters&gt;
+&lt;/tool_description&gt;
+
+&lt;/tools&gt;
+"""
+</file>
+
+</source>
